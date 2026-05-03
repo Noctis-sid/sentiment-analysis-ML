@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CineRead — Movie Sentiment Analyser</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Reset ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Variables ──────────────────────────────────────── */
+    :root {
+      --ink:       #0e0e0e;
+      --paper:     #f5f0e8;
+      --cream:     #ede7d9;
+      --gold:      #c9a84c;
+      --gold-lt:   #e8cc7e;
+      --red:       #c0392b;
+      --green:     #1e7e50;
+      --mid:       #8a7e6e;
+      --border:    #d4c9b0;
+      --shadow:    rgba(14,14,14,0.12);
+    }
+
+    /* ── Base ────────────────────────────────────────────── */
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Grain overlay ───────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.6;
+    }
+
+    /* ── Header ──────────────────────────────────────────── */
+    header {
+      border-bottom: 2px solid var(--ink);
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo span { color: var(--gold); }
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mid);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 2px;
+    }
+
+    /* ── Hero ────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      position: relative;
+    }
+    .hero::after {
+      content: '';
+      display: block;
+      width: 60px; height: 2px;
+      background: var(--gold);
+      margin: 20px auto 0;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.15;
+      max-width: 700px;
+      margin: 0 auto 16px;
+    }
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+    .hero p {
+      color: var(--mid);
+      font-size: 0.95rem;
+      font-weight: 300;
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ── Main card ───────────────────────────────────────── */
+    .card {
+      max-width: 760px;
+      margin: 0 auto 60px;
+      padding: 0 20px;
+      width: 100%;
+    }
+    .input-wrap {
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 var(--border);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .input-wrap:focus-within {
+      box-shadow: 4px 4px 0 var(--gold);
+      border-color: var(--gold);
+    }
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      padding: 20px 22px;
+      border: none;
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      resize: vertical;
+      background: transparent;
+      color: var(--ink);
+    }
+    textarea::placeholder { color: #b5aa96; }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-top: 1px solid var(--cream);
+      background: var(--cream);
+    }
+    .char-count { font-size: 0.75rem; color: var(--mid); }
+
+    /* ── Button ──────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      border: 1.5px solid var(--ink);
+      border-radius: 2px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.18s;
+      background: var(--ink);
+      color: white;
+    }
+    .btn:hover { background: #2a2a2a; transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--gold); }
+    .btn:active { transform: translate(0,0); box-shadow: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+    }
+    .btn-ghost:hover { background: var(--cream); box-shadow: 3px 3px 0 var(--border); }
+
+    /* ── Spinner ─────────────────────────────────────────── */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Sample chips ────────────────────────────────────── */
+    .samples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .samples-label {
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--mid);
+      margin-bottom: 4px;
+    }
+    .chip {
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--ink);
+    }
+    .chip:hover { border-color: var(--gold); color: var(--gold); }
+    .chip.pos { border-color: var(--green); color: var(--green); }
+    .chip.neg { border-color: var(--red); color: var(--red); }
+    .chip.sar { border-color: #7b5ea7; color: #7b5ea7; }
+
+    /* ── Result panel ────────────────────────────────────── */
+    #result { display: none; margin-top: 28px; }
+
+    .verdict {
+      padding: 28px 32px;
+      border-radius: 4px;
+      border: 1.5px solid;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 20px;
+      animation: fadeUp 0.4s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .verdict.good { background: #f0faf5; border-color: var(--green); }
+    .verdict.bad  { background: #fdf2f0; border-color: var(--red); }
+
+    .verdict-icon { font-size: 3rem; line-height: 1; }
+    .verdict-text h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.7rem;
+    }
+    .verdict.good .verdict-text h2 { color: var(--green); }
+    .verdict.bad  .verdict-text h2 { color: var(--red); }
+    .verdict-text p { color: var(--mid); font-size: 0.85rem; margin-top: 4px; }
+
+    /* ── Confidence bars ─────────────────────────────────── */
+    .conf-section { margin-bottom: 20px; }
+    .conf-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--mid);
+      margin-bottom: 6px;
+    }
+    .bar-track {
+      background: var(--cream);
+      border-radius: 2px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.9s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .bar-fill.good { background: var(--green); }
+    .bar-fill.bad  { background: var(--red); }
+
+    /* ── Stats row ───────────────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-box .sv { font-size: 1.5rem; font-weight: 700; font-family: 'Playfair Display', serif; }
+    .stat-box .sl { font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--mid); margin-top: 3px; }
+    .stat-box.good .sv { color: var(--green); }
+    .stat-box.bad  .sv { color: var(--red); }
+
+    /* ── History ─────────────────────────────────────────── */
+    .history-wrap { margin-top: 40px; }
+    .history-title {
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mid);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      margin-bottom: 8px;
+      font-size: 0.83rem;
+      animation: fadeUp 0.3s ease;
+    }
+    .h-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .h-dot.good { background: var(--green); }
+    .h-dot.bad  { background: var(--red); }
+    .h-text { flex: 1; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .h-badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .h-badge.good { background: #e8f8f0; color: var(--green); }
+    .h-badge.bad  { background: #fdecea; color: var(--red); }
+
+    /* ── Model info strip ────────────────────────────────── */
+    .model-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--cream);
+      padding: 12px 40px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .ms-item { text-align: center; }
+    .ms-val { font-size: 1.05rem; font-weight: 700; font-family: 'Playfair Display', serif; color: var(--gold); }
+    .ms-label { font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--mid); }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 20px;
+      font-size: 0.72rem;
+      color: var(--mid);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🎬 <span>CineRead</span></div>
+  <div class="badge">CT052-3-M-NLP &nbsp;·&nbsp; APU</div>
+</header>
+
+<!-- Model stats strip -->
+<div class="model-strip">
+  <div class="ms-item"><div class="ms-val">90.48%</div><div class="ms-label">F1 Score</div></div>
+  <div class="ms-item"><div class="ms-val">90.48%</div><div class="ms-label">Accuracy</div></div>
+  <div class="ms-item"><div class="ms-val">Linear SVM</div><div class="ms-label">Best Model</div></div>
+  <div class="ms-item"><div class="ms-val">50,000</div><div class="ms-label">Training Reviews</div></div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>What does the<br/><em>audience</em> really think?</h1>
+  <p>Paste any movie review below. Our trained Linear SVM classifier will instantly judge whether it's a positive or negative sentiment.</p>
+</div>
+
+<!-- Main card -->
+<div class="card">
+
+  <!-- Input -->
+  <div class="input-wrap">
+    <textarea id="review-input" maxlength="3000"
+      placeholder="Type or paste a movie review here…&#10;&#10;e.g. 'The cinematography was breathtaking but the script left much to be desired...'"
+    ></textarea>
+    <div class="input-footer">
+      <span class="char-count"><span id="cc">0</span> / 3000</span>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+        <button class="btn" id="analyse-btn" onclick="analyse()">
+          <span class="spinner" id="spin"></span>
+          <span id="btn-txt">Analyse Review</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sample chips -->
+  <div style="margin-top:16px;">
+    <div class="samples-label">Try a sample:</div>
+    <div class="samples">
+      <button class="chip pos" onclick="loadSample('good')">✅ Positive Review</button>
+      <button class="chip neg" onclick="loadSample('bad')">❌ Negative Review</button>
+      <button class="chip sar" onclick="loadSample('sarcastic')">🎭 Sarcastic Review</button>
+      <button class="chip" onclick="loadSample('mixed')">⚖️ Mixed Review</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="result">
+
+    <!-- Verdict -->
+    <div class="verdict" id="verdict-box">
+      <div class="verdict-icon" id="v-icon"></div>
+      <div class="verdict-text">
+        <h2 id="v-label"></h2>
+        <p id="v-sub"></p>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-box" id="stat-sent">
+        <div class="sv" id="sv-sent">—</div>
+        <div class="sl">Sentiment</div>
+      </div>
+      <div class="stat-box" id="stat-conf">
+        <div class="sv" id="sv-conf">—</div>
+        <div class="sl">Confidence</div>
+      </div>
+      <div class="stat-box">
+        <div class="sv" id="sv-words">—</div>
+        <div class="sl">Word Count</div>
+      </div>
+    </div>
+
+    <!-- Confidence bars -->
+    <div class="conf-section">
+      <div class="conf-label"><span>✅ Good (Positive)</span><span id="conf-good-pct">—</span></div>
+      <div class="bar-track"><div class="bar-fill good" id="bar-good" style="width:0%"></div></div>
+      <div class="conf-label"><span>❌ Bad (Negative)</span><span id="conf-bad-pct">—</span></div>
+      <div class="bar-track"><div class="bar-fill bad"  id="bar-bad"  style="width:0%"></div></div>
+    </div>
+
+  </div>
+
+  <!-- History -->
+  <div class="history-wrap" id="history-wrap" style="display:none;">
+    <div class="history-title">Recent Predictions</div>
+    <div id="history-list"></div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  CT052-3-M-NLP &nbsp;·&nbsp; Asia Pacific University &nbsp;·&nbsp; IMDB Sentiment Classifier &nbsp;·&nbsp; Linear SVM
+</footer>
+
+<script>
+  /* ── Samples ─────────────────────────────────────────── */
+  const SAMPLES = {
+    good: `This film is an absolute masterpiece. The director's vision is crystal clear from the opening shot, and the ensemble cast delivers career-defining performances. The narrative is intricate yet accessible, weaving themes of loss and redemption into a breathtaking visual tapestry.`,
+    bad: `What an utter waste of two hours. The script is painfully clichéd, the CGI looks like a student project, and the plot makes absolutely no sense by the final act. I struggled to stay awake during the second half.`,
+    sarcastic: `Oh brilliant, another cinematic masterpiece that cured my insomnia! The dialogue was so deep and meaningful — if you enjoy watching paint dry. What a total shock that it won zero awards. Truly, a gift to humanity.`,
+    mixed: `The cinematography is genuinely stunning and the score is hauntingly beautiful, but the script lets the whole thing down. Great performances from the cast can only carry a film so far when the story lacks direction.`
+  };
+
+  /* ── Character counter ───────────────────────────────── */
+  document.getElementById('review-input').addEventListener('input', function() {
+    document.getElementById('cc').textContent = this.value.length;
+  });
+
+  function loadSample(type) {
+    const ta = document.getElementById('review-input');
+    ta.value = SAMPLES[type];
+    document.getElementById('cc').textContent = ta.value.length;
+  }
+
+  function clearAll() {
+    document.getElementById('review-input').value = '';
+    document.getElementById('cc').textContent = '0';
+    document.getElementById('result').style.display = 'none';
+  }
+
+  /* ── Analyse ──────────────────────────────────────────── */
+  async function analyse() {
+    const review = document.getElementById('review-input').value.trim();
+    if (!review || review.length < 5) {
+      alert('Please enter a review first.');
+      return;
+    }
+
+    const btn  = document.getElementById('analyse-btn');
+    const spin = document.getElementById('spin');
+    const txt  = document.getElementById('btn-txt');
+
+    btn.disabled = true;
+    spin.style.display = 'block';
+    txt.textContent = 'Analysing…';
+
+    try {
+      const res  = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review })
+      });
+      const data = await res.json();
+      displayResult(data, review);
+    } catch(e) {
+      alert('Error: Could not connect to the server. Make sure Flask is running.');
+    } finally {
+      btn.disabled = false;
+      spin.style.display = 'none';
+      txt.textContent = 'Analyse Review';
+    }
+  }
+
+  /* ── Display result ───────────────────────────────────── */
+  function displayResult(data, review) {
+    const isGood  = data.is_positive;
+    const conf    = data.confidence;
+    const goodPct = conf['Good'] || 0;
+    const badPct  = conf['Bad']  || 0;
+    const topConf = Math.max(goodPct, badPct);
+
+    // Verdict box
+    const box = document.getElementById('verdict-box');
+    box.className = `verdict ${isGood ? 'good' : 'bad'}`;
+    document.getElementById('v-icon').textContent = isGood ? '✅' : '❌';
+    document.getElementById('v-label').textContent = isGood ? 'Positive Review' : 'Negative Review';
+    document.getElementById('v-sub').textContent   = isGood
+      ? 'This review expresses a favourable opinion of the film.'
+      : 'This review expresses an unfavourable opinion of the film.';
+
+    // Stats
+    const statSent = document.getElementById('stat-sent');
+    statSent.className = `stat-box ${isGood ? 'good' : 'bad'}`;
+    document.getElementById('sv-sent').textContent  = isGood ? 'Good' : 'Bad';
+    document.getElementById('sv-conf').textContent  = topConf.toFixed(1) + '%';
+    document.getElementById('sv-words').textContent = review.trim().split(/\s+/).length;
+
+    // Bars
+    setTimeout(() => {
+      document.getElementById('bar-good').style.width = goodPct + '%';
+      document.getElementById('bar-bad').style.width  = badPct  + '%';
+    }, 80);
+    document.getElementById('conf-good-pct').textContent = goodPct.toFixed(1) + '%';
+    document.getElementById('conf-bad-pct').textContent  = badPct.toFixed(1)  + '%';
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // History
+    addHistory(review, isGood, topConf);
+  }
+
+  /* ── History ──────────────────────────────────────────── */
+  const historyItems = [];
+
+  function addHistory(review, isGood, conf) {
+    historyItems.unshift({ review, isGood, conf });
+    if (historyItems.length > 5) historyItems.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const wrap = document.getElementById('history-wrap');
+    const list = document.getElementById('history-list');
+    wrap.style.display = 'block';
+    list.innerHTML = historyItems.map(h => `
+      <div class="history-item">
+        <div class="h-dot ${h.isGood ? 'good' : 'bad'}"></div>
+        <div class="h-text">${h.review.substring(0, 80)}${h.review.length > 80 ? '…' : ''}</div>
+        <span class="h-badge ${h.isGood ? 'good' : 'bad'}">${h.isGood ? 'GOOD' : 'BAD'} · ${h.conf.toFixed(0)}%</span>
+      </div>
+    `).join('');
+  }
+
+  /* ── Enter key ────────────────────────────────────────── */
+  document.getElementById('review-input').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') analyse();
+  });
+</script>
+</body>
+</html>
